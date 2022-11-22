@@ -19,6 +19,10 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     address private s_winner;
     uint256 private lotteryStake;
     uint256 private lotteryId;
+    enum LotteryState {
+        OPEN,
+        CLOSED
+    }
 
     /* Chainlink VRF Variables */
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
@@ -28,12 +32,24 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
     uint32 private constant NUM_WORDS = 1;
 
+    // Structs
+
+    struct Lottery {
+        address author;
+        LotteryState status;
+        uint256 reward;
+        address payable[] participants;
+    }
+
     /* Mappings */
-    mapping(uint256 => address payable[]) idToAddresses;
+    mapping(uint256 => Lottery) idToLottery;
 
     /* Events */
     event RequestedRaffleWinner(uint256 indexed requestId);
-    event AddressesAdded(address payable[] addresses);
+    event AddressesAdded(
+        uint256 indexed lotteryId,
+        address payable[] addresses
+    );
     event WinnerPicked(address indexed recentWinner);
 
     /* Constructor */
@@ -53,14 +69,28 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         lotteryId = 0;
     }
 
+    /* Modifiers */
+
+    modifier onlyOwner() {
+        require(msg.sender == i_owner);
+        _;
+    }
+
     /* Main Functions */
 
-    function setAddresses(address payable[] memory _addresses) public {
-        if (msg.sender != i_owner) {
-            revert Lottery__NotOwner();
-        }
-        idToAddresses[lotteryId] = _addresses;
-        emit AddressesAdded(_addresses);
+    function openLottery(address _author) public payable onlyOwner {
+        lotteryId += 1;
+        idToLottery[lotteryId].author = _author;
+        idToLottery[lotteryId].status = LotteryState.OPEN;
+        idToLottery[lotteryId].reward = msg.value;
+    }
+
+    function addLotteryParticipants(
+        uint256 _lotteryId,
+        address payable[] memory _addresses
+    ) public onlyOwner {
+        idToLottery[_lotteryId].participants = _addresses;
+        emit AddressesAdded(_lotteryId, _addresses);
     }
 
     function requestRandomWords() external {
@@ -70,7 +100,6 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         if (msg.sender != i_owner) {
             revert Lottery__NotOwner();
         }
-        lotteryId += 1;
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             subscriptionId,
@@ -114,7 +143,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         view
         returns (uint256)
     {
-        return idToAddresses[_lotteryId].length;
+        return idToLottery[_lotteryId].participants.length;
     }
 
     function getParticipants(uint256 _lotteryId)
@@ -122,7 +151,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         view
         returns (address payable[] memory)
     {
-        return idToAddresses[_lotteryId];
+        return idToLottery[_lotteryId].participants;
     }
 
     function getLotteryStake() public view returns (uint256) {
