@@ -26,7 +26,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     /* Chainlink VRF Variables */
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
-    uint64 private subscriptionId;
+    uint64 private immutable i_subscriptionId;
     bytes32 private immutable i_gasLane;
     uint32 private immutable i_callbackGasLimit;
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
@@ -38,7 +38,11 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         address author;
         LotteryState status;
         uint256 reward;
+        uint256 numOfWinners;
+        uint256[] rewardProportions;
+        uint256[] finalRewards;
         address payable[] participants;
+        address payable[] winners;
     }
 
     /* Mappings */
@@ -55,17 +59,16 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     /* Constructor */
     constructor(
         uint64 _subscriptionId,
-        bytes32 gasLane,
-        uint32 callbackGasLimit
+        bytes32 _gasLane,
+        uint32 _callbackGasLimit,
     ) payable VRFConsumerBaseV2(0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed) {
         i_owner = msg.sender;
         i_vrfCoordinator = VRFCoordinatorV2Interface(
             0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed
         );
-        subscriptionId = _subscriptionId;
-        i_gasLane = gasLane;
-        i_callbackGasLimit = callbackGasLimit;
-        lotteryStake = msg.value;
+        i_subscriptionId = _subscriptionId;
+        i_gasLane = _gasLane;
+        i_callbackGasLimit = _callbackGasLimit;
         lotteryId = 0;
     }
 
@@ -78,11 +81,28 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     /* Main Functions */
 
-    function openLottery(address _author) public payable onlyOwner {
+    function openLottery(address _author, uint256 _numOfWinners, uint256[] _rewardProportions) public payable onlyOwner {
         lotteryId += 1;
+
+        // Setting basic information about the lottery
+
         idToLottery[lotteryId].author = _author;
         idToLottery[lotteryId].status = LotteryState.OPEN;
         idToLottery[lotteryId].reward = msg.value;
+        idToLottery[lotteryId].numOfWinners = _numOfWinners;
+        idToLottery[lotteryId].rewardProportions = _rewardProportions;
+
+        // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
+
+        uint256[] memory rewardsFinal;
+
+        for (uint i=0; i < idToLottery[lotteryId].numOfWinners.length; i++) {
+            uint256 memory prize = msg.value / 100 * idToLottery[lotteryId].rewardProportions[i];
+            rewardsFinal.push(prize);
+        }
+
+        idToLottery[lotterId].finalRewards = rewardsFinal;
+
     }
 
     function addLotteryParticipants(
@@ -102,7 +122,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         }
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
-            subscriptionId,
+            i_subscriptionId,
             REQUEST_CONFIRMATIONS,
             i_callbackGasLimit,
             NUM_WORDS
@@ -126,8 +146,8 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     /* Getter Functions */
 
-    function getRecentWinner() public view returns (address) {
-        return s_winner;
+    function getWinnersOfLottery(uint256 _lotteryId) public view returns (address payable[] memory) {
+        return idToLottery[_lotteryId].winners;
     }
 
     function getNumWords() public pure returns (uint256) {
@@ -154,11 +174,11 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         return idToLottery[_lotteryId].participants;
     }
 
-    function getLotteryStake() public view returns (uint256) {
-        return lotteryStake;
+    function getLotteryPrize(uint256 _lotteryId) public view returns (uint256) {
+        return idToLottery[_lotteryId].reward;
     }
 
     function getSubscriptionId() public view returns (uint256) {
-        return subscriptionId;
+        return i_subscriptionId;
     }
 }
