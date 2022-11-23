@@ -18,6 +18,9 @@ error Lottery__NumOfPlayersNotEqualToNumOfRewards();
 error Lottery__WinnerAlreadyPicked();
 error Lottery__LotteryAlreadyExists();
 error Lottery__NotEnoughFundsSent();
+error Lottery__LotteryDoesNotExist();
+error Lottery__RewardProportionsError();
+error Lottery__RandomNumberAlreadyPicked();
 
 contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     /* Lottery Variables */
@@ -27,8 +30,8 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     uint256 private lotteryStake;
     uint256 private lotteryId;
     enum LotteryState {
-        OPEN,
-        CLOSED
+        CLOSED,
+        OPEN
     }
 
     /* Chainlink VRF Variables */
@@ -42,6 +45,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     // Structs
 
     struct Lottery {
+        bool exists;
         address author;
         LotteryState status;
         uint256 reward;
@@ -54,6 +58,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     /* Mappings */
     mapping(uint256 => Lottery) idToLottery;
+    mapping(uint256 => uint256) idToRandomNumber;
 
     /* Events */
     event RequestedRaffleWinner(uint256 indexed requestId);
@@ -61,7 +66,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         uint256 indexed lotteryId,
         address payable[] addresses
     );
-    event WinnerPicked(address indexed recentWinner);
+    event RandomNumberPicked(uint256 indexed lotteryId, uint256 randomNumber);
 
     /* Constructor */
     constructor(
@@ -93,11 +98,20 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         if (_rewardProportions.length != _numOfWinners) {
             revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
         }
-        if (idToLottery[lotteryId].author == _author) {
+        if (idToLottery[lotteryId].author == _author || idToLottery[lotteryId].exists == true) {
             revert Lottery__LotteryAlreadyExists();
         }
         if (msg.value <= 0) {
             revert Lottery__NotEnoughFundsSent();
+        }
+        uint256 rewardProportionsSum;
+
+        for (uint i=0; i<_rewardProportions.length; i++) {
+            rewardProportionsSum = rewardProportionsSum + _rewardProportions[i];
+        }
+
+        if (rewardProportionsSum != 100) {
+            revert Lottery__RewardProportionsError();
         }
 
 
@@ -105,6 +119,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
         // Setting basic information about the lottery
 
+        idToLottery[lotteryId].exists = true;
         idToLottery[lotteryId].author = _author;
         idToLottery[lotteryId].status = LotteryState.OPEN;
         idToLottery[lotteryId].reward = msg.value;
@@ -123,11 +138,17 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         uint256 _lotteryId,
         address payable[] memory _addresses
     ) public onlyOwner {
+        if (idToLottery[_lotteryId].status != LotteryState.OPEN) {
+            revert Lottery__LotteryClosed();
+        }
+        if (idToLottery[_lotteryId].exists != true) {
+            revert Lottery__LotteryDoesNotExist();
+        }
         idToLottery[_lotteryId].participants = _addresses;
         emit AddressesAdded(_lotteryId, _addresses);
     }
 
-    function requestRandomWords(uint256 _lotteryId) external onlyOwner {
+    function pickRandomNumberForLottery(uint256 _lotteryId) external onlyOwner {
         if (idToLottery[_lotteryId].participants.length <= 0) {
             revert Lottery__NotEnoughPlayers();
         }
@@ -146,6 +167,9 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].winners.length > 0) {
             revert Lottery__WinnerAlreadyPicked();
         }
+        if (idToRandomNumber[_lotteryId] != 0) {
+            revert Lottery__RandomNumberAlreadyPicked();
+        }
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
@@ -160,14 +184,19 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         uint256, /* _requestId */
         uint256[] memory _randomWords
     ) internal override nonReentrant {
-        uint256 indexOfWinner = _randomWords[0] % participants.length;
-        address payable recentWinner = participants[indexOfWinner];
-        s_winner = recentWinner;
-        (bool success, ) = recentWinner.call{value: address(this).balance}("");
-        if (!success) {
-            revert Lottery__TransferFailed();
-        }
-        emit WinnerPicked(recentWinner);
+        idToRandomNumber[lotteryId] = _randomWords[0];
+        // uint256 indexOfWinner = _randomWords[0] % participants.length;
+        // address payable recentWinner = participants[indexOfWinner];
+        // s_winner = recentWinner;
+        // (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        // if (!success) {
+            // revert Lottery__TransferFailed();
+        // }
+        emit RandomNumberPicked(lotteryId, _randomWords[0]);
+    }
+
+    function payoutWinners(uint256 _lotteryId) public onlyOwner {
+        
     }
 
     /* Getter Functions */
@@ -206,5 +235,12 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     function getSubscriptionId() public view returns (uint256) {
         return i_subscriptionId;
+    }
+
+    function getLotteryInfo(uint256 _lotteryId) public view returns (Lottery memory) {
+        return idToLottery[_lotteryId];
+    }
+    function getLotteryState(uint256 _lotteryId) public view returns (LotteryState) {
+        return idToLottery[_lotteryId].status;
     }
 }
