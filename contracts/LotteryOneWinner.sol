@@ -196,7 +196,18 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     }
 
     function payoutWinners(uint256 _lotteryId) public onlyOwner {
-        
+        for (uint i=0; i<idToLottery[_lotteryId].numOfWinners; i++) {
+            uint256 vrfNumber = idToRandomNumber[_lotteryId];
+            uint256 randomNumber = uint256(keccak256(abi.encode(vrfNumber, block.timestamp, i))) % idToLottery[_lotteryId].participants.length;
+            address payable recentWinner = idToLottery[_lotteryId].participants[randomNumber];
+            idToLottery[_lotteryId].winners.push(recentWinner);
+        }
+        for (uint i=0; i<idToLottery[_lotteryId].winners.length; i++) {
+            (bool success, ) = idToLottery[_lotteryId].winners[i].call{value: idToLottery[_lotteryId].finalRewards[i]}("");
+            if (!success) {
+                revert Lottery__TransferFailed();
+            }
+        }
     }
 
     /* Getter Functions */
@@ -242,5 +253,8 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     }
     function getLotteryState(uint256 _lotteryId) public view returns (LotteryState) {
         return idToLottery[_lotteryId].status;
+    }
+    function getRandomNumber(uint256 _lotteryId) public view returns (uint256) {
+        return idToRandomNumber[_lotteryId];
     }
 }
