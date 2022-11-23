@@ -11,6 +11,13 @@ import "hardhat/console.sol";
 error Lottery__NotOwner();
 error Lottery__NotEnoughPlayers();
 error Lottery__TransferFailed();
+error Lottery__LotteryClosed();
+error Lottery__RewardEqualToZero();
+error Lottery__NotEnoughWinners();
+error Lottery__NumOfPlayersNotEqualToNumOfRewards();
+error Lottery__WinnerAlreadyPicked();
+error Lottery__LotteryAlreadyExists();
+error Lottery__NotEnoughFundsSent();
 
 contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     /* Lottery Variables */
@@ -60,7 +67,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
     constructor(
         uint64 _subscriptionId,
         bytes32 _gasLane,
-        uint32 _callbackGasLimit,
+        uint32 _callbackGasLimit
     ) payable VRFConsumerBaseV2(0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed) {
         i_owner = msg.sender;
         i_vrfCoordinator = VRFCoordinatorV2Interface(
@@ -81,7 +88,19 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     /* Main Functions */
 
-    function openLottery(address _author, uint256 _numOfWinners, uint256[] _rewardProportions) public payable onlyOwner {
+    function openLottery(address _author, uint256 _numOfWinners, uint256[] memory _rewardProportions) public payable onlyOwner {
+
+        if (_rewardProportions.length != _numOfWinners) {
+            revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
+        }
+        if (idToLottery[lotteryId].author == _author) {
+            revert Lottery__LotteryAlreadyExists();
+        }
+        if (msg.value <= 0) {
+            revert Lottery__NotEnoughFundsSent();
+        }
+
+
         lotteryId += 1;
 
         // Setting basic information about the lottery
@@ -94,15 +113,10 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
         // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
 
-        uint256[] memory rewardsFinal;
-
-        for (uint i=0; i < idToLottery[lotteryId].numOfWinners.length; i++) {
-            uint256 memory prize = msg.value / 100 * idToLottery[lotteryId].rewardProportions[i];
-            rewardsFinal.push(prize);
+        for (uint i=0; i < idToLottery[lotteryId].numOfWinners; i++) {
+            uint256 prize = msg.value / 100 * idToLottery[lotteryId].rewardProportions[i];
+            idToLottery[lotteryId].finalRewards.push(prize);
         }
-
-        idToLottery[lotterId].finalRewards = rewardsFinal;
-
     }
 
     function addLotteryParticipants(
@@ -113,12 +127,24 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         emit AddressesAdded(_lotteryId, _addresses);
     }
 
-    function requestRandomWords() external {
-        if (participants.length <= 0) {
+    function requestRandomWords(uint256 _lotteryId) external onlyOwner {
+        if (idToLottery[_lotteryId].participants.length <= 0) {
             revert Lottery__NotEnoughPlayers();
         }
-        if (msg.sender != i_owner) {
-            revert Lottery__NotOwner();
+        if (idToLottery[_lotteryId].status != LotteryState.OPEN) {
+            revert Lottery__LotteryClosed();
+        }
+        if (idToLottery[_lotteryId].reward <= 0) {
+            revert Lottery__RewardEqualToZero();
+        }
+        if (idToLottery[_lotteryId].numOfWinners <= 0) {
+            revert Lottery__NotEnoughWinners();
+        }
+        if (idToLottery[_lotteryId].rewardProportions.length != idToLottery[_lotteryId].numOfWinners) {
+            revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
+        }
+        if (idToLottery[_lotteryId].winners.length > 0) {
+            revert Lottery__WinnerAlreadyPicked();
         }
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
