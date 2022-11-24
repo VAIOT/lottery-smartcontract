@@ -42,7 +42,7 @@ https://faucets.chain.link/
 
 Make sure you swap the subscriptionId in the helper-hardhat-config.js with your own.
 
-Also, after deploying the contract to the mumbai testnet you add the contract as the consumer of the subscription.
+Also, after deploying the contract to the mumbai testnet you need to add the contract as the consumer of the subscription.
 
 To deploy the smart contract locally you need to write:
 
