@@ -23,7 +23,15 @@ error Lottery__RewardProportionsError();
 error Lottery__RandomNumberAlreadyPicked();
 error Lottery__RandomNumberNotPicked();
 
-contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
+/// @title Lottery that automatically picks winners and pays them in the native token
+/// @author VAIOT team
+/// @notice This contract supports multiple lotteries running at once
+/// @dev Functions should be called in the order: openLottery -> addLotteryParticipants -> pickRandomNumberForLottery
+/// -> payOutWinners (open the lottery, add participants, pick random number for the lottery and pay the winners)
+/// The function emergencyCashback is for paying back the author of the giveaway in case the lottery gets stuck
+/// (for example because there were not enough players).
+
+contract Raffle is ReentrancyGuard, VRFConsumerBaseV2 {
     /* Lottery Variables */
     address payable[] private participants;
     address immutable i_owner;
@@ -47,7 +55,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     struct Lottery {
         bool exists;
-        address author;
+        address payable author;
         LotteryState status;
         uint256 reward;
         uint256 numOfWinners;
@@ -94,8 +102,19 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     /* Main Functions */
 
-    function openLottery(address _author, uint256 _numOfWinners, uint256[] memory _rewardProportions) public payable onlyOwner {
+    /// @notice Open the lottery
+    /// @param _author - author of the giveaway
+    /// @param _numOfWinners - number of winners of the lottery
+    /// @param _rewardProportions - what % of the reward goes to what winner. Example:
+    /// if there are 5 participants and everyone gets equal rewards the input would be [20,20,20,20,20]
+    /// Keep in mind the proportions have to sum up to 100 and the length of the array has to match
+    /// the number of winners
 
+    function openLottery(
+        address payable _author,
+        uint256 _numOfWinners,
+        uint256[] memory _rewardProportions
+    ) public payable onlyOwner {
         if (_rewardProportions.length != _numOfWinners) {
             revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
         }
@@ -104,7 +123,7 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         }
         uint256 rewardProportionsSum;
 
-        for (uint i=0; i<_rewardProportions.length; i++) {
+        for (uint i = 0; i < _rewardProportions.length; i++) {
             rewardProportionsSum = rewardProportionsSum + _rewardProportions[i];
         }
 
@@ -129,11 +148,16 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
         // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
 
-        for (uint i=0; i < idToLottery[lotteryId].numOfWinners; i++) {
-            uint256 prize = msg.value / 100 * idToLottery[lotteryId].rewardProportions[i];
+        for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
+            uint256 prize = (msg.value / 100) *
+                idToLottery[lotteryId].rewardProportions[i];
             idToLottery[lotteryId].finalRewards.push(prize);
         }
     }
+
+    /// @notice Function that adds participants of the lottery
+    /// @param _lotteryId - id of the lottery (the first lottery has index 1)
+    /// @param _addresses - array containing addresses of the lottery participants
 
     function addLotteryParticipants(
         uint256 _lotteryId,
@@ -145,9 +169,14 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].exists != true) {
             revert Lottery__LotteryDoesNotExist();
         }
-        idToLottery[_lotteryId].participants = _addresses;
+        for (uint i = 0; i < _addresses.length; i++) {
+            idToLottery[_lotteryId].participants.push(_addresses[i]);
+        }
         emit AddressesAdded(_lotteryId, _addresses);
     }
+
+    /// @notice Call Chainlink VRF to get a random number
+    /// @param _lotteryId - id of the lottery
 
     function pickRandomNumberForLottery(uint256 _lotteryId) external onlyOwner {
         if (idToLottery[_lotteryId].participants.length <= 0) {
@@ -162,7 +191,10 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].numOfWinners <= 0) {
             revert Lottery__NotEnoughWinners();
         }
-        if (idToLottery[_lotteryId].rewardProportions.length != idToLottery[_lotteryId].numOfWinners) {
+        if (
+            idToLottery[_lotteryId].rewardProportions.length !=
+            idToLottery[_lotteryId].numOfWinners
+        ) {
             revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
         }
         if (idToLottery[_lotteryId].winners.length > 0) {
@@ -181,6 +213,8 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         emit RequestedRaffleWinner(requestId);
     }
 
+    /// @notice Function that the Chainlink node calls in order to supply us with a random number
+
     function fulfillRandomWords(
         uint256, /* _requestId */
         uint256[] memory _randomWords
@@ -188,6 +222,10 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         idToRandomNumber[lotteryId] = _randomWords[0];
         emit RandomNumberPicked(lotteryId, _randomWords[0]);
     }
+
+    /// @notice Function that pays the winners of the lottery
+    /// @notice Call it only when openLottery and addParticipants have been previously called
+    /// @param _lotteryId - id of the lottery
 
     function payoutWinners(uint256 _lotteryId) public onlyOwner {
         if (idToRandomNumber[_lotteryId] == 0) {
@@ -199,35 +237,67 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].status != LotteryState.OPEN) {
             revert Lottery__LotteryClosed();
         }
+        if (
+            idToLottery[_lotteryId].numOfWinners >
+            idToLottery[_lotteryId].participants.length
+        ) {
+            revert Lottery__NotEnoughPlayers();
+        }
         idToLottery[_lotteryId].status = LotteryState.CLOSED;
         uint256 vrfNumber = idToRandomNumber[_lotteryId];
 
-        // Creating a unique random number for every winner 
+        // Creating a unique random number for every winner
         // 1. Create random number based on the array length
         // 2. Find the winner and push it to a new array
         // 3. Delete the previous winner and replace the last address with the deleted one
         // 4. Delete the last element of the array which is empty and repeat the process
 
-        for (uint i=0; i<idToLottery[_lotteryId].numOfWinners; i++) {
-            uint256 randomIndex = uint256(keccak256(abi.encode(vrfNumber, block.timestamp, i))) % idToLottery[_lotteryId].participants.length;
-            address payable recentWinner = idToLottery[_lotteryId].participants[randomIndex];
+        for (uint i = 0; i < idToLottery[_lotteryId].numOfWinners; i++) {
+            uint256 randomIndex = uint256(
+                keccak256(abi.encode(vrfNumber, block.timestamp, i))
+            ) % idToLottery[_lotteryId].participants.length;
+            address payable recentWinner = idToLottery[_lotteryId].participants[
+                randomIndex
+            ];
             idToLottery[_lotteryId].winners.push(recentWinner);
             delete idToLottery[_lotteryId].participants[randomIndex];
-            idToLottery[_lotteryId].participants[randomIndex] = idToLottery[_lotteryId].participants[idToLottery[_lotteryId].participants.length-1];
+            idToLottery[_lotteryId].participants[randomIndex] = idToLottery[
+                _lotteryId
+            ].participants[idToLottery[_lotteryId].participants.length - 1];
             idToLottery[_lotteryId].participants.pop();
         }
         // Loop over the array of winners and payout their winnings
-        for (uint i=0; i<idToLottery[_lotteryId].winners.length; i++) {
-            (bool success, ) = idToLottery[_lotteryId].winners[i].call{value: idToLottery[_lotteryId].finalRewards[i]}("");
+        for (uint i = 0; i < idToLottery[_lotteryId].winners.length; i++) {
+            (bool success, ) = idToLottery[_lotteryId].winners[i].call{
+                value: idToLottery[_lotteryId].finalRewards[i]
+            }("");
             if (!success) {
                 revert Lottery__TransferFailed();
             }
         }
     }
 
+    /// @notice Function that is only called when an emergency cashback is required (for example funds are stuck)
+    /// Keep in mind that the money gets returned to the author of the giveaway
+    /// @param _lotteryId - id of the lottery
+
+    function emergencyCashback(uint256 _lotteryId) public onlyOwner {
+        address payable author = idToLottery[_lotteryId].author;
+        uint256 amount = idToLottery[_lotteryId].reward;
+        idToLottery[_lotteryId].status = LotteryState.CLOSED;
+        (bool success, ) = author.call{value: amount}("");
+        if (!success) {
+            revert Lottery__TransferFailed();
+        }
+    }
+
     /* Getter Functions */
 
-    function getWinnersOfLottery(uint256 _lotteryId) public view returns (address payable[] memory) {
+    function getWinnersOfLottery(uint256 _lotteryId)
+        public
+        view
+        returns (address payable[] memory)
+    {
         return idToLottery[_lotteryId].winners;
     }
 
@@ -263,11 +333,19 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
         return i_subscriptionId;
     }
 
-    function getLotteryInfo(uint256 _lotteryId) public view returns (Lottery memory) {
+    function getLotteryInfo(uint256 _lotteryId)
+        public
+        view
+        returns (Lottery memory)
+    {
         return idToLottery[_lotteryId];
     }
 
-    function getLotteryState(uint256 _lotteryId) public view returns (LotteryState) {
+    function getLotteryState(uint256 _lotteryId)
+        public
+        view
+        returns (LotteryState)
+    {
         return idToLottery[_lotteryId].status;
     }
 
@@ -277,5 +355,45 @@ contract LotteryOneWinner is ReentrancyGuard, VRFConsumerBaseV2 {
 
     function getLotteryId() public view returns (uint256) {
         return lotteryId;
+    }
+
+    function getNumberOfWinners(uint256 _lotteryId)
+        public
+        view
+        returns (uint256)
+    {
+        return idToLottery[_lotteryId].numOfWinners;
+    }
+
+    function getLotteryAuthor(uint256 _lotteryId)
+        public
+        view
+        returns (address payable)
+    {
+        return idToLottery[_lotteryId].author;
+    }
+
+    function getRewardProportions(uint256 _lotteryId)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return idToLottery[_lotteryId].rewardProportions;
+    }
+
+    function getFinalRewards(uint256 _lotteryId)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return idToLottery[_lotteryId].finalRewards;
+    }
+
+    function checkIfLotteryExists(uint256 _lotteryId)
+        public
+        view
+        returns (bool)
+    {
+        return idToLottery[_lotteryId].exists;
     }
 }

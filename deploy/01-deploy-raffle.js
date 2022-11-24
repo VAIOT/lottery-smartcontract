@@ -36,7 +36,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     networkConfig[chainId]["gasLane"],
     networkConfig[chainId]["callbackGasLimit"],
   ];
-  const raffle = await deploy("LotteryOneWinner", {
+  const raffle = await deploy("Raffle", {
     from: deployer,
     args: arguments,
     log: true,

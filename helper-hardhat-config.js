@@ -6,17 +6,17 @@ const networkConfig = {
   },
   31337: {
     name: "localhost",
-    subscriptionId: "2686",
+    subscriptionId: "2679",
     gasLane:
       "0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f", // 30 gwei
-    callbackGasLimit: "25000000", // 500,000 gas
+    callbackGasLimit: "25000000", // 2,500,000 gas
   },
   80001: {
     name: "mumbai",
-    subscriptionId: "2686",
+    subscriptionId: "2679",
     gasLane:
       "0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f", // 30 gwei
-    callbackGasLimit: "2500000", // 500,000 gas
+    callbackGasLimit: "2500000", // 2,500,000 gas
   },
 };
 
