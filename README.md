@@ -1,7 +1,10 @@
 # Lottery Smart Contract
 
 This project showcases and tests Lottery Smart Contract.
-The contract allows owner to open up lotteries, add participants of the lottery, get a random number, pick winners of the lottery and payout the winnings to them.
+
+The Raffle contract allows owner to open up lotteries, add participants of the lottery, get a random number, pick winners of the lottery and payout the winnings to them.
+
+The RaffleWinnerPicker has a very similiar functionality to the Raffle contract with one main difference - the contract does not payout any money to the winners. The contract is strictly for opening up lotteries without money, adding participants of the giveaway and finding X amount of winners using the VRF Chainlink technology.
 
 This is a hardhat repository. Before doing anything run
 
@@ -73,6 +76,4 @@ yarn hardhat test
 
 ## Disclaimer
 
-In the contracts folder you can find RaffleWhitelist contract which has pretty much the same functionality as the Raffle contract, but it does not take any money from the author and it does not payout any money to the winners.
-
-This contract is meant for whitelist giveaways, meaning a person giving away whitelist spots for NFT projects - the only thing that this contract needs to do is pick a certain number of winners and return them.
+The RaffleWinnerPicker contract is meant mainly for whitelist giveaways or other giveaways that do not require transferring money. In the future it will also be used for lotteries that would require ERC20 tokens (this contract would pick the winners, and another contract on the Ethereum chain would payout the winners in the appropriate currency).
