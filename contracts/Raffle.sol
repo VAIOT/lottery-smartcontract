@@ -122,15 +122,6 @@ contract Raffle is VRFConsumerBaseV2 {
         if (msg.value <= 0) {
             revert Lottery__NotEnoughFundsSent();
         }
-        uint256 rewardAmountsSum;
-
-        for (uint i = 0; i < _rewardAmounts.length; i++) {
-            rewardAmountsSum = rewardAmountsSum + _rewardAmounts[i];
-        }
-
-        if (rewardAmountsSum * 10 ** 18 != msg.value) {
-            revert Lottery__RewardAmountSplitError();
-        }
 
         lotteryId += 1;
 
@@ -150,8 +141,19 @@ contract Raffle is VRFConsumerBaseV2 {
 
         // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
 
+        uint256 totalAmount = 0;
+
+        // Get the total amount of MATIC the winners should get
+
         for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
-            uint256 prize = idToLottery[lotteryId].rewardAmounts[i] * 10 ** 18;
+            totalAmount = totalAmount + idToLottery[lotteryId].rewardAmounts[i];
+        }
+
+        // Calculate how much matic in WEI they should get
+
+        for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
+            uint256 prize = (idToLottery[lotteryId].rewardAmounts[i] *
+                msg.value) / totalAmount;
             idToLottery[lotteryId].finalRewards.push(prize);
         }
     }

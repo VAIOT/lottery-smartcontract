@@ -27,11 +27,11 @@ const {
         });
       });
 
-      describe("openLottery", function () {
+      describe("openLotteryPercentage", function () {
         it("Reverts if not the owner calls the function", async () => {
           const playerConnected = await raffleContract.connect(player);
           await expect(
-            playerConnected.openLottery(
+            playerConnected.openLotteryPercentage(
               "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
               "4",
               [25, 25, 25, 25],
@@ -41,7 +41,7 @@ const {
         });
         it("Reverts if the owner does not send money", async () => {
           await expect(
-            raffleContract.openLottery(
+            raffleContract.openLotteryPercentage(
               "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
               "4",
               [25, 25, 25, 25],
@@ -54,7 +54,7 @@ const {
         });
         it("Reverts if the amount of people specified does not match the amount of rewards", async () => {
           await expect(
-            raffleContract.openLottery(
+            raffleContract.openLotteryPercentage(
               "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
               "4",
               [25, 25, 25],
@@ -66,7 +66,7 @@ const {
           );
         });
         it("Sets the lottery Id and lottery parameters properly", async () => {
-          await raffleContract.openLottery(
+          await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
             [25, 25, 25, 25],
@@ -79,6 +79,7 @@ const {
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153"
           );
           assert.equal(await raffleContract.getLotteryState(1), "1");
+          assert.equal(await raffleContract.getLotteryType(1), "1");
           assert.equal(await raffleContract.getLotteryPrize(1), "100");
           assert.equal(await raffleContract.getNumberOfWinners(1), "4");
           assert.equal(
@@ -87,7 +88,7 @@ const {
           );
         });
         it("Calculates the rewards for each winner properly", async () => {
-          await raffleContract.openLottery(
+          await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
             [25, 25, 25, 25],
@@ -127,7 +128,7 @@ const {
           );
         });
         it("Updates the participants array properly", async () => {
-          await raffleContract.openLottery(
+          await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
             [25, 25, 25, 25],
@@ -147,7 +148,7 @@ const {
           ]);
         });
         it("Emits AddressesAdded event", async () => {
-          await raffleContract.openLottery(
+          await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
             [25, 25, 25, 25],
@@ -165,7 +166,7 @@ const {
       });
       describe("fulfillRandomWords", function () {
         beforeEach(async () => {
-          await raffleContract.openLottery(
+          await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
             [25, 25, 25, 25],
@@ -187,7 +188,7 @@ const {
       describe("emergencyCashback", function () {
         it("Sends back the money to the author", async () => {
           const startingBalance = await playerTwo.getBalance();
-          const tx = await raffleContract.openLottery(
+          const tx = await raffleContract.openLotteryPercentage(
             playerTwo.address,
             "1",
             [100],
@@ -202,6 +203,86 @@ const {
             startingBalance.add(tx.value).toString(),
             endingBalance.toString()
           );
+        });
+      });
+      describe("openLotterySplit", function () {
+        it("Reverts if not the owner calls the function", async () => {
+          const playerConnected = await raffleContract.connect(player);
+          await expect(
+            playerConnected.openLotterySplit(
+              "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
+              "4",
+              [25, 25, 25, 25],
+              { value: "100" }
+            )
+          ).to.be.reverted;
+        });
+        it("Reverts if the owner does not send money", async () => {
+          await expect(
+            raffleContract.openLotterySplit(
+              "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
+              "4",
+              [25, 25, 25, 25],
+              { value: "0" }
+            )
+          ).to.be.revertedWithCustomError(
+            raffleContract,
+            "Lottery__NotEnoughFundsSent"
+          );
+        });
+        it("Reverts if the amount of people specified does not match the amount of rewards", async () => {
+          await expect(
+            raffleContract.openLotterySplit(
+              "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
+              "4",
+              [25, 25, 25],
+              { value: "100" }
+            )
+          ).to.be.revertedWithCustomError(
+            raffleContract,
+            "Lottery__NumOfPlayersNotEqualToNumOfRewards"
+          );
+        });
+        it("Sets the lottery Id and lottery parameters properly", async () => {
+          await raffleContract.openLotterySplit(
+            "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
+            "4",
+            [25, 25, 25, 25],
+            { value: "100" }
+          );
+          assert.equal(await raffleContract.getLotteryId(), "1");
+          assert.equal(await raffleContract.checkIfLotteryExists(1), "1");
+          assert.equal(
+            await raffleContract.getLotteryAuthor(1),
+            "0xD6D8903F2E900b176c5915A68144E4bd664aA153"
+          );
+          assert.equal(await raffleContract.getLotteryState(1), "1");
+          assert.equal(await raffleContract.getLotteryType(1), "0");
+          assert.equal(
+            (await raffleContract.getLotteryPrize(1)).toString(),
+            "100"
+          );
+          assert.equal(await raffleContract.getNumberOfWinners(1), "4");
+          assert.equal((await raffleContract.getRewardAmounts(1)).toString(), [
+            "25",
+            "25",
+            "25",
+            "25",
+          ]);
+        });
+        it("Calculates the rewards for each winner properly", async () => {
+          await raffleContract.openLotterySplit(
+            "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
+            "4",
+            [25, 25, 25, 25],
+            { value: "100" }
+          );
+          assert.equal((await raffleContract.getFinalRewards(1)).toString(), [
+            "25",
+            "25",
+            "25",
+            "25",
+          ]);
         });
       });
     });

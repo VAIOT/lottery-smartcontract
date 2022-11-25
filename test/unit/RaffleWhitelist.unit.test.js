@@ -16,7 +16,7 @@ const {
         playerTwo = accounts[2];
         await deployments.fixture(["rafflewhitelist"]); // Deploys modules with the tags "mocks" and "raffle"
         vrfCoordinatorV2Mock = await ethers.getContract("VRFCoordinatorV2Mock"); // Returns a new connection to the VRFCoordinatorV2Mock contract
-        raffleContract = await ethers.getContract("RaffleWhitelist"); // Returns a new connection to the Raffle contract
+        raffleContract = await ethers.getContract("RaffleWinnerPicker"); // Returns a new connection to the Raffle contract
         raffle = raffleContract.connect(player); // Returns a new instance of the Raffle contract connected to player
       });
 
