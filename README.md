@@ -70,3 +70,9 @@ yarn hardhat test
 - The function emergencyCashback should only be used if funds are stuck
 - Contract is able to run both locally and on a testnet, there is a VRF mock included in the contract for local testing
 - If you find any way to optimize the code, please submit a pull request
+
+## Disclaimer
+
+In the contracts folder you can find RaffleWhitelist contract which has pretty much the same functionality as the Raffle contract, but it does not take any money from the author and it does not payout any money to the winners.
+
+This contract is meant for whitelist giveaways, meaning a person giving away whitelist spots for NFT projects - the only thing that this contract needs to do is pick a certain number of winners and return them.

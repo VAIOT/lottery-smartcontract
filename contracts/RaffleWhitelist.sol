@@ -4,7 +4,6 @@ pragma solidity ^0.8.9;
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "hardhat/console.sol";
 
 error Lottery__NotOwner();
@@ -13,25 +12,22 @@ error Lottery__TransferFailed();
 error Lottery__LotteryClosed();
 error Lottery__RewardEqualToZero();
 error Lottery__NotEnoughWinners();
-error Lottery__NumOfPlayersNotEqualToNumOfRewards();
 error Lottery__WinnerAlreadyPicked();
 error Lottery__LotteryAlreadyExists();
 error Lottery__NotEnoughFundsSent();
 error Lottery__LotteryDoesNotExist();
-error Lottery__RewardProportionsError();
 error Lottery__RandomNumberAlreadyPicked();
 error Lottery__RandomNumberNotPicked();
 
-/// @title Lottery that automatically picks winners and pays them in the native token
+/// @title Lottery that automatically picks the set amount of winners
 /// @author VAIOT team
 /// @notice This contract supports multiple lotteries running at once
 /// @dev Functions should be called in the order: openLottery -> addLotteryParticipants -> pickRandomNumberForLottery
-/// -> payOutWinners (open the lottery, add participants, pick random number for the lottery and pay the winners)
-/// The function emergencyCashback is for paying back the author of the giveaway in case the lottery gets stuck
-/// (for example because there were not enough players).
+/// -> pickWinners (open the lottery, add participants, pick random number for the lottery and pick the winners)
 
-contract Raffle is VRFConsumerBaseV2 {
+contract RaffleWhitelist is VRFConsumerBaseV2 {
     /* Lottery Variables */
+
     address immutable i_owner;
     uint256 private lotteryId;
     enum LotteryState {
@@ -53,10 +49,7 @@ contract Raffle is VRFConsumerBaseV2 {
         bool exists;
         address payable author;
         LotteryState status;
-        uint256 reward;
         uint256 numOfWinners;
-        uint256[] rewardProportions;
-        uint256[] finalRewards;
         address payable[] participants;
         address payable[] winners;
     }
@@ -101,32 +94,11 @@ contract Raffle is VRFConsumerBaseV2 {
     /// @notice Open the lottery
     /// @param _author - author of the giveaway
     /// @param _numOfWinners - number of winners of the lottery
-    /// @param _rewardProportions - what % of the reward goes to what winner. Example:
-    /// if there are 5 participants and everyone gets equal rewards the input would be [20,20,20,20,20]
-    /// Keep in mind the proportions have to sum up to 100 and the length of the array has to match
-    /// the number of winners
 
     function openLottery(
         address payable _author,
-        uint256 _numOfWinners,
-        uint256[] memory _rewardProportions
-    ) public payable onlyOwner {
-        if (_rewardProportions.length != _numOfWinners) {
-            revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
-        }
-        if (msg.value <= 0) {
-            revert Lottery__NotEnoughFundsSent();
-        }
-        uint256 rewardProportionsSum;
-
-        for (uint i = 0; i < _rewardProportions.length; i++) {
-            rewardProportionsSum = rewardProportionsSum + _rewardProportions[i];
-        }
-
-        if (rewardProportionsSum != 100) {
-            revert Lottery__RewardProportionsError();
-        }
-
+        uint256 _numOfWinners
+    ) public onlyOwner {
         lotteryId += 1;
 
         if (idToLottery[lotteryId].exists == true) {
@@ -138,17 +110,7 @@ contract Raffle is VRFConsumerBaseV2 {
         idToLottery[lotteryId].exists = true;
         idToLottery[lotteryId].author = _author;
         idToLottery[lotteryId].status = LotteryState.OPEN;
-        idToLottery[lotteryId].reward = msg.value;
         idToLottery[lotteryId].numOfWinners = _numOfWinners;
-        idToLottery[lotteryId].rewardProportions = _rewardProportions;
-
-        // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
-
-        for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
-            uint256 prize = (msg.value / 100) *
-                idToLottery[lotteryId].rewardProportions[i];
-            idToLottery[lotteryId].finalRewards.push(prize);
-        }
     }
 
     /// @notice Function that adds participants of the lottery
@@ -181,17 +143,8 @@ contract Raffle is VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].status != LotteryState.OPEN) {
             revert Lottery__LotteryClosed();
         }
-        if (idToLottery[_lotteryId].reward <= 0) {
-            revert Lottery__RewardEqualToZero();
-        }
         if (idToLottery[_lotteryId].numOfWinners <= 0) {
             revert Lottery__NotEnoughWinners();
-        }
-        if (
-            idToLottery[_lotteryId].rewardProportions.length !=
-            idToLottery[_lotteryId].numOfWinners
-        ) {
-            revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
         }
         if (idToLottery[_lotteryId].winners.length > 0) {
             revert Lottery__WinnerAlreadyPicked();
@@ -212,18 +165,20 @@ contract Raffle is VRFConsumerBaseV2 {
     /// @notice Function that the Chainlink node calls in order to supply us with a random number
 
     function fulfillRandomWords(
-        uint256, /* _requestId */
+        uint256 /* _requestId */,
         uint256[] memory _randomWords
     ) internal override {
         idToRandomNumber[lotteryId] = _randomWords[0];
         emit RandomNumberPicked(lotteryId, _randomWords[0]);
     }
 
-    /// @notice Function that pays the winners of the lottery
+    /// @notice Function that picks the winners of the lottery
     /// @notice Call it only when openLottery and addParticipants have been previously called
     /// @param _lotteryId - id of the lottery
 
-    function payoutWinners(uint256 _lotteryId) public onlyOwner {
+    function pickWinners(
+        uint256 _lotteryId
+    ) public onlyOwner returns (address payable[] memory) {
         if (idToRandomNumber[_lotteryId] == 0) {
             revert Lottery__RandomNumberNotPicked();
         }
@@ -262,38 +217,14 @@ contract Raffle is VRFConsumerBaseV2 {
             ].participants[idToLottery[_lotteryId].participants.length - 1];
             idToLottery[_lotteryId].participants.pop();
         }
-        // Loop over the array of winners and payout their winnings
-        for (uint i = 0; i < idToLottery[_lotteryId].winners.length; i++) {
-            (bool success, ) = idToLottery[_lotteryId].winners[i].call{
-                value: idToLottery[_lotteryId].finalRewards[i]
-            }("");
-            if (!success) {
-                revert Lottery__TransferFailed();
-            }
-        }
-    }
-
-    /// @notice Function that is only called when an emergency cashback is required (for example funds are stuck)
-    /// Keep in mind that the money gets returned to the author of the giveaway
-    /// @param _lotteryId - id of the lottery
-
-    function emergencyCashback(uint256 _lotteryId) public onlyOwner {
-        address payable author = idToLottery[_lotteryId].author;
-        uint256 amount = idToLottery[_lotteryId].reward;
-        idToLottery[_lotteryId].status = LotteryState.CLOSED;
-        (bool success, ) = author.call{value: amount}("");
-        if (!success) {
-            revert Lottery__TransferFailed();
-        }
+        return idToLottery[_lotteryId].winners;
     }
 
     /* Getter Functions */
 
-    function getWinnersOfLottery(uint256 _lotteryId)
-        public
-        view
-        returns (address payable[] memory)
-    {
+    function getWinnersOfLottery(
+        uint256 _lotteryId
+    ) public view returns (address payable[] memory) {
         return idToLottery[_lotteryId].winners;
     }
 
@@ -305,43 +236,31 @@ contract Raffle is VRFConsumerBaseV2 {
         return REQUEST_CONFIRMATIONS;
     }
 
-    function getNumberOfPlayers(uint256 _lotteryId)
-        public
-        view
-        returns (uint256)
-    {
+    function getNumberOfPlayers(
+        uint256 _lotteryId
+    ) public view returns (uint256) {
         return idToLottery[_lotteryId].participants.length;
     }
 
-    function getParticipants(uint256 _lotteryId)
-        public
-        view
-        returns (address payable[] memory)
-    {
+    function getParticipants(
+        uint256 _lotteryId
+    ) public view returns (address payable[] memory) {
         return idToLottery[_lotteryId].participants;
-    }
-
-    function getLotteryPrize(uint256 _lotteryId) public view returns (uint256) {
-        return idToLottery[_lotteryId].reward;
     }
 
     function getSubscriptionId() public view returns (uint256) {
         return i_subscriptionId;
     }
 
-    function getLotteryInfo(uint256 _lotteryId)
-        public
-        view
-        returns (Lottery memory)
-    {
+    function getLotteryInfo(
+        uint256 _lotteryId
+    ) public view returns (Lottery memory) {
         return idToLottery[_lotteryId];
     }
 
-    function getLotteryState(uint256 _lotteryId)
-        public
-        view
-        returns (LotteryState)
-    {
+    function getLotteryState(
+        uint256 _lotteryId
+    ) public view returns (LotteryState) {
         return idToLottery[_lotteryId].status;
     }
 
@@ -353,43 +272,21 @@ contract Raffle is VRFConsumerBaseV2 {
         return lotteryId;
     }
 
-    function getNumberOfWinners(uint256 _lotteryId)
-        public
-        view
-        returns (uint256)
-    {
+    function getNumberOfWinners(
+        uint256 _lotteryId
+    ) public view returns (uint256) {
         return idToLottery[_lotteryId].numOfWinners;
     }
 
-    function getLotteryAuthor(uint256 _lotteryId)
-        public
-        view
-        returns (address payable)
-    {
+    function getLotteryAuthor(
+        uint256 _lotteryId
+    ) public view returns (address payable) {
         return idToLottery[_lotteryId].author;
     }
 
-    function getRewardProportions(uint256 _lotteryId)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        return idToLottery[_lotteryId].rewardProportions;
-    }
-
-    function getFinalRewards(uint256 _lotteryId)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        return idToLottery[_lotteryId].finalRewards;
-    }
-
-    function checkIfLotteryExists(uint256 _lotteryId)
-        public
-        view
-        returns (bool)
-    {
+    function checkIfLotteryExists(
+        uint256 _lotteryId
+    ) public view returns (bool) {
         return idToLottery[_lotteryId].exists;
     }
 }
