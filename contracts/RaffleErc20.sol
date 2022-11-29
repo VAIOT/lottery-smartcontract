@@ -20,10 +20,10 @@ interface IERC721 {
 /// @notice This contract should solely be used for storing tokens and paying out winners of the lottery
 /// @dev In order to use this smart contract properly the author of the giveaway should send
 /// ERC721 or ERC20 tokens to this smart contract's address. After sending the tokens we can
-/// call transferERC20 to send ERC20 tokens to the winners, ERC721 to send NFTs to winners and
+/// call transferERC20 to send ERC20 tokens to the winners, transferERC721 to send NFTs to winners and
 /// getERC20Balance, getERC721Balance to check the balance of ERC20/ERC721 tokens.
 
-contract RaffleErc20 is Ownable {
+contract RaffleERC20 is Ownable {
 
     /// @notice Transfer ERC20 tokens to the winners
     /// @param _token - address of the ERC20 token
@@ -50,7 +50,7 @@ contract RaffleErc20 is Ownable {
     /// @param _winners - array of addresses of the winners of the lottery for example ["0x", "0x2", ...]
     /// @param _NFTIds - array containing IDs of tokens from certain NFT collections
 
-    function transferNFT(
+    function transferERC721(
         address[] memory _NFTAddresses, 
         address[] memory _winners, 
         uint256[] memory _NFTIds

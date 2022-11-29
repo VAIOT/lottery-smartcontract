@@ -219,7 +219,7 @@ contract Raffle is VRFConsumerBaseV2 {
     function addLotteryParticipants(
         uint256 _lotteryId,
         address payable[] memory _addresses
-    ) public onlyOwner {
+    ) external onlyOwner {
         if (idToLottery[_lotteryId].status != LotteryState.OPEN) {
             revert Lottery__LotteryClosed();
         }
