@@ -248,12 +248,6 @@ contract Raffle is VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].numOfWinners <= 0) {
             revert Lottery__NotEnoughWinners();
         }
-        if (
-            idToLottery[_lotteryId].rewardProportions.length !=
-            idToLottery[_lotteryId].numOfWinners
-        ) {
-            revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
-        }
         if (idToLottery[_lotteryId].winners.length > 0) {
             revert Lottery__WinnerAlreadyPicked();
         }
