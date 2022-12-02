@@ -3,15 +3,17 @@ import {useState, useRef} from "react"
 import { ethers } from "ethers";
 import raffleAbi from "./raffleAbi.json";
 import tokenAbi from "./tokenAbi.json"
+import winnerPickerAbi from "./winnerPickerAbi.json"
+import axios from 'axios';
 
 
 function App() {
 
-  const formRef = useRef();
-  
+  const formRef = useRef();  
 
   const [error, setError] = useState();
 
+  const [nftAbi, setNftAbi] = useState()
   const [checkedType, setCheckedType] = useState("")
   const [maticInput, setMaticInput] = useState("")
   const [erc20Input, setErc20Input] = useState("")
@@ -198,11 +200,11 @@ function App() {
           raffleAbi,
           signer
         )
-        let tx = await contract.pickRandomNumberForLottery(3)
+        let tx = await contract.pickRandomNumberForLottery(5)
         await tx.wait(6)
-        let receipt = await contract.payoutWinners(3)
+        let receipt = await contract.payoutWinners(5)
         await receipt.wait(3)
-        const winners = await contract.getWinnersOfLottery(3)
+        const winners = await contract.getWinnersOfLottery(5)
         setWinners(winners)
       }
     }
@@ -223,7 +225,7 @@ function App() {
           raffleAbi,
           signer
         )
-        await contract.addLotteryParticipants(3, participants)
+        await contract.addLotteryParticipants(5, participants)
       }
     }
   }
@@ -233,17 +235,17 @@ function App() {
       alert('Please connect your wallet first')
     } else {
       const chainId = await provider.send("eth_chainId")
-      console.log(chainId)
       if (chainId !== "0x5") {
         alert("Connect your wallet to Goerli testnet")
       } else {
-        const signer = provider.getSigner()
+        const signer = await provider.getSigner()
         const contract = new ethers.Contract(
           "0x5642B78C7167788Dbd63cf3E7A8148c62082E0d0",
           tokenAbi,
           signer
         )
-        await contract.transfer([], ethers.utils.parseEther(maticValue.toString()))
+        await contract.transfer("0xD2509e56a44B60D72eb4904AA24925043c0Eaf18", ethers.utils.parseEther(maticValue.toString()))
+        await handleOpenLottery()
       }
     }
   }
@@ -287,6 +289,48 @@ function App() {
     const addressArray = value.split(',')
     setParticipants(addressArray)
   }
+
+  const handleOpenLottery = async () => {
+    let provider = new ethers.getDefaultProvider(process.env.REACT_APP_MUMBAI_PROVIDER);
+    let walletWithProvider = new ethers.Wallet(process.env.REACT_APP_PRIVATE_KEY, provider);
+    const contract = new ethers.Contract(
+      "0x813Bb43cB47Fbe50C8519B9539e1732Cb22527F6",
+      winnerPickerAbi,
+      walletWithProvider
+    )
+    await contract.openLottery(authorWallet, numOfWinners)
+  }
+
+
+const getNftAbi = (contractAddress) => {
+  axios
+  .get(`https://api-goerli.etherscan.io/api?module=contract&action=getabi&address=${contractAddress}&apikey=${process.env.REACT_APP_ETHERSCAN_API_KEY}`)
+  .then(data => setNftAbi(data.data.result))
+  .catch(error => console.log(error));
+  };
+
+const handleNftSubmit = async (contractAddress) => {
+  getNftAbi(contractAddress)
+
+  if (provider == undefined) {
+    alert('Please connect your wallet first')
+  } else {
+    const chainId = await provider.send("eth_chainId")
+    if (chainId !== "0x5") {
+      alert("Connect your wallet to Goerli testnet")
+    } else {
+      const signer = provider.getSigner()
+      const contract = new ethers.Contract(
+        contractAddress,
+        nftAbi,
+        signer
+      )
+      await contract.transferFrom(authorWallet,"0x438BA8BD834b6053B82C269c2D30d566FFC32baE", 1)
+      await handleOpenLottery()
+    }
+  }
+
+}
 
 
   return (
@@ -371,7 +415,7 @@ function App() {
       <button onClick={() => handleRequestRandomNumber()}>Pick random number and finish lottery</button>
       <br></br>
       <br></br>
-      <div>Winners are {winners.map(el => (<p>{el}</p>))}</div>
+      <div>Winners are {winners == undefined ? <p></p> : winners.map(el => (<p>{el}</p>))}</div>
       </div>
       }
       {checkedType === "ERC20" && <div><form className="container">
@@ -418,7 +462,7 @@ function App() {
       <button onClick={() => handleERC20Transfer()}>Submit</button>
       </div>
       }
-      {checkedType === "NFT" && <form className="container">
+      {checkedType === "NFT" && <div><form className="container">
         <label>
         Your wallet address: 
           <input type="text" name="walletAddress" className="input" onChange={(e) => setAuthorWallet(e.target.value)}></input>
@@ -446,7 +490,9 @@ function App() {
           </div>
         ))}
         </form>
-      </form>}
+      </form>
+      <button onClick={() => handleNftSubmit('0x48d9dE329dCb49533F1C9013cC3aABc5E82a0c28')}>Submit</button>
+      </div>}
     </div>
     </div>
   );

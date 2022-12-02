@@ -2,7 +2,6 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 error RaffleErc20__NotEnoughSent();
 error RaffleErc20__RewardsNotEqualToWinners();
@@ -23,7 +22,19 @@ interface IERC721 {
 /// call transferERC20 to send ERC20 tokens to the winners, transferERC721 to send NFTs to winners and
 /// getERC20Balance, getERC721Balance to check the balance of ERC20/ERC721 tokens.
 
-contract RaffleERC20 is Ownable {
+contract RaffleERC20 {
+
+
+    address immutable i_owner;
+
+    constructor() {
+        i_owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == i_owner);
+        _;
+    }
 
     /// @notice Transfer ERC20 tokens to the winners
     /// @param _token - address of the ERC20 token
@@ -75,7 +86,7 @@ contract RaffleERC20 is Ownable {
 
     function getERC20Balance(
         address _token
-    ) public view onlyOwner returns (uint) {
+    ) public view returns (uint) {
         return IERC20(_token).balanceOf(address(this));
     }
 
@@ -84,7 +95,7 @@ contract RaffleERC20 is Ownable {
 
     function getERC721Balance(
         address _token
-    ) public view onlyOwner returns (uint) {
+    ) public view returns (uint) {
         return IERC721(_token).balanceOf(address(this));
     }
 }
