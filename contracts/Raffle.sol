@@ -4,7 +4,7 @@ pragma solidity ^0.8.9;
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "hardhat/console.sol";
 
 error Lottery__NotOwner();
@@ -34,6 +34,10 @@ error Lottery__RandomNumberNotPicked();
 contract Raffle is VRFConsumerBaseV2 {
     /* Lottery Variables */
     address immutable i_owner;
+    uint256 private s_totalFees;
+    uint256 MINIMUM_FEE;
+    AggregatorV3Interface private s_priceFeed;
+
     uint256 private lotteryId;
     enum LotteryState {
         CLOSED,
@@ -94,6 +98,10 @@ contract Raffle is VRFConsumerBaseV2 {
         i_gasLane = _gasLane;
         i_callbackGasLimit = _callbackGasLimit;
         lotteryId = 0;
+        MINIMUM_FEE = 0.1 * 10 ** 18;
+        s_priceFeed = AggregatorV3Interface(
+            0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada
+        );
     }
 
     /* Modifiers */
@@ -108,8 +116,7 @@ contract Raffle is VRFConsumerBaseV2 {
     /// @notice Open the lottery with the type SPLIT
     /// @param _author - author of the giveaway
     /// @param _numOfWinners - number of winners of the lottery
-    /// @param _rewardAmounts - how many tokens go to which winner. For example if the winners should get 20 USDC,
-    /// 10 USDC and 5 USDC then the input should look like this [20,10,5]
+    /// @param _rewardAmounts - how many tokens go to which winner in WEI. For example 0.1 tokens is 0.1*10^18
 
     function openLotterySplit(
         address payable _author,
@@ -123,11 +130,31 @@ contract Raffle is VRFConsumerBaseV2 {
             revert Lottery__NotEnoughFundsSent();
         }
 
-        lotteryId += 1;
+        // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
+
+        uint256 totalAmount = 0;
+
+        // Get the total amount of MATIC the winners should get (in WEI)
+
+        for (uint i = 0; i < _rewardAmounts.length; i++) {
+            totalAmount = totalAmount + _rewardAmounts[i];
+        }
+
+        if (
+            getConversionRate(msg.value - totalAmount, s_priceFeed) <
+            MINIMUM_FEE
+        ) {
+            revert Lottery__NotEnoughFundsSent();
+        }
 
         if (idToLottery[lotteryId].exists == true) {
             revert Lottery__LotteryAlreadyExists();
         }
+
+        // Calculating how much fees has the contract received for the contract deployer
+        s_totalFees = s_totalFees + msg.value - totalAmount;
+
+        lotteryId += 1;
 
         // Setting basic information about the lottery
 
@@ -135,32 +162,16 @@ contract Raffle is VRFConsumerBaseV2 {
         idToLottery[lotteryId].lotteryType = LotteryType.SPLIT;
         idToLottery[lotteryId].author = _author;
         idToLottery[lotteryId].status = LotteryState.OPEN;
-        idToLottery[lotteryId].reward = msg.value;
+        idToLottery[lotteryId].reward = msg.value - totalAmount;
         idToLottery[lotteryId].numOfWinners = _numOfWinners;
         idToLottery[lotteryId].rewardAmounts = _rewardAmounts;
-
-        // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
-
-        uint256 totalAmount = 0;
-
-        // Get the total amount of MATIC the winners should get
-
-        for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
-            totalAmount = totalAmount + idToLottery[lotteryId].rewardAmounts[i];
-        }
-
-        // Calculate how much matic in WEI they should get
-
-        for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
-            uint256 prize = (idToLottery[lotteryId].rewardAmounts[i] *
-                msg.value) / totalAmount;
-            idToLottery[lotteryId].finalRewards.push(prize);
-        }
+        idToLottery[lotteryId].finalRewards = _rewardAmounts;
     }
 
     /// @notice Open the lottery with the type PERCENTAGE
     /// @param _author - author of the giveaway
     /// @param _numOfWinners - number of winners of the lottery
+    /// @param _feesAmount - amount of fees in the native token in WEI (1*10^18 = 1 token)
     /// @param _rewardProportions - what % of the reward goes to what winner. Example:
     /// if there are 5 participants and everyone gets equal rewards the input would be [20,20,20,20,20]
     /// Keep in mind the proportions have to sum up to 100 and the length of the array has to match
@@ -169,12 +180,21 @@ contract Raffle is VRFConsumerBaseV2 {
     function openLotteryPercentage(
         address payable _author,
         uint256 _numOfWinners,
-        uint256[] memory _rewardProportions
+        uint256 _totalReward,
+        uint256[] memory _rewardProportions,
+        uint256 _feesAmount
     ) public payable onlyOwner {
         if (_rewardProportions.length != _numOfWinners) {
             revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
         }
         if (msg.value <= 0) {
+            revert Lottery__NotEnoughFundsSent();
+        }
+        if (msg.value < _totalReward + _feesAmount) {
+            revert Lottery__NotEnoughFundsSent();
+        }
+
+        if (_feesAmount < MINIMUM_FEE) {
             revert Lottery__NotEnoughFundsSent();
         }
         uint256 rewardProportionsSum;
@@ -187,11 +207,13 @@ contract Raffle is VRFConsumerBaseV2 {
             revert Lottery__RewardProportionsError();
         }
 
-        lotteryId += 1;
-
         if (idToLottery[lotteryId].exists == true) {
             revert Lottery__LotteryAlreadyExists();
         }
+
+        lotteryId += 1;
+
+        s_totalFees = s_totalFees + _feesAmount;
 
         // Setting basic information about the lottery
 
@@ -199,14 +221,14 @@ contract Raffle is VRFConsumerBaseV2 {
         idToLottery[lotteryId].author = _author;
         idToLottery[lotteryId].lotteryType = LotteryType.PERCENTAGE;
         idToLottery[lotteryId].status = LotteryState.OPEN;
-        idToLottery[lotteryId].reward = msg.value;
+        idToLottery[lotteryId].reward = _totalReward;
         idToLottery[lotteryId].numOfWinners = _numOfWinners;
         idToLottery[lotteryId].rewardProportions = _rewardProportions;
 
         // Calculating how much the winners get exactly in MATIC and pushing the information into the mapping
 
         for (uint i = 0; i < idToLottery[lotteryId].numOfWinners; i++) {
-            uint256 prize = (msg.value / 100) *
+            uint256 prize = (_totalReward / 100) *
                 idToLottery[lotteryId].rewardProportions[i];
             idToLottery[lotteryId].finalRewards.push(prize);
         }
@@ -248,12 +270,7 @@ contract Raffle is VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].numOfWinners <= 0) {
             revert Lottery__NotEnoughWinners();
         }
-        if (
-            idToLottery[_lotteryId].rewardProportions.length !=
-            idToLottery[_lotteryId].numOfWinners
-        ) {
-            revert Lottery__NumOfPlayersNotEqualToNumOfRewards();
-        }
+
         if (idToLottery[_lotteryId].winners.length > 0) {
             revert Lottery__WinnerAlreadyPicked();
         }
@@ -346,6 +363,62 @@ contract Raffle is VRFConsumerBaseV2 {
         if (!success) {
             revert Lottery__TransferFailed();
         }
+    }
+
+    /// @notice Function that is only called when the owner wants to withdraw the money generated from fees for the lotteries
+
+    function withdrawFees() public onlyOwner {
+        uint256 amount = s_totalFees;
+        s_totalFees = 0;
+        (bool success, ) = i_owner.call{value: amount}("");
+        if (!success) {
+            revert Lottery__TransferFailed();
+        }
+    }
+
+    /// @notice Function that fetches the price of a given asset
+    /// @param _priceFeed - address to the price feed of the address
+
+    function getPrice(
+        AggregatorV3Interface _priceFeed
+    ) internal view returns (uint256) {
+        (, int256 answer, , , ) = _priceFeed.latestRoundData();
+
+        return uint256(answer * 10000000000);
+    }
+
+    /// @notice Function that calculates how much does a certain amount of matic cost in USD
+    /// @param _priceFeed - address to the price feed of the address
+    /// @param _maticAmount - amount of matic to convert
+    function getConversionRate(
+        uint256 _maticAmount,
+        AggregatorV3Interface _priceFeed
+    ) internal view returns (uint256) {
+        uint256 maticPrice = getPrice(_priceFeed);
+        uint256 maticPriceInUsd = (maticPrice * _maticAmount) /
+            1000000000000000000;
+
+        return maticPriceInUsd;
+    }
+
+    /// @notice Function that allows you to update the minimum fee required to open up a lottery
+    /// @param _fee - minimum fee in USD
+
+    function updateMinimumFee(uint256 _fee) public {
+        if (msg.sender != i_owner) {
+            revert Lottery__NotOwner();
+        }
+        MINIMUM_FEE = _fee * 10 ** 18;
+    }
+
+    /// @notice Function that allows you to update the price feed address
+    /// @param _priceFeed - address to the price feed of the address
+
+    function updatePriceFeed(address _priceFeed) public {
+        if (msg.sender != i_owner) {
+            revert Lottery__NotOwner();
+        }
+        s_priceFeed = AggregatorV3Interface(_priceFeed);
     }
 
     /* Getter Functions */
@@ -444,5 +517,13 @@ contract Raffle is VRFConsumerBaseV2 {
         uint256 _lotteryId
     ) public view returns (bool) {
         return idToLottery[_lotteryId].exists;
+    }
+
+    function getAmountOfFees() public view returns (uint256) {
+        return s_totalFees;
+    }
+
+    function getPriceFeed() public view returns (AggregatorV3Interface) {
+        return s_priceFeed;
     }
 }
