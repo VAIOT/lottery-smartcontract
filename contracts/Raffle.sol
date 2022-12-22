@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
@@ -241,7 +241,7 @@ contract Raffle is VRFConsumerBaseV2 {
     function addLotteryParticipants(
         uint256 _lotteryId,
         address payable[] memory _addresses
-    ) external onlyOwner {
+    ) public onlyOwner {
         if (idToLottery[_lotteryId].status != LotteryState.OPEN) {
             revert Lottery__LotteryClosed();
         }
@@ -270,6 +270,7 @@ contract Raffle is VRFConsumerBaseV2 {
         if (idToLottery[_lotteryId].numOfWinners <= 0) {
             revert Lottery__NotEnoughWinners();
         }
+
         if (idToLottery[_lotteryId].winners.length > 0) {
             revert Lottery__WinnerAlreadyPicked();
         }
