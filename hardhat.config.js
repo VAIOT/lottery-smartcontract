@@ -8,6 +8,7 @@ const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const REPORT_GAS = process.env.REPORT_GAS || false;
 const MUMBAI_RPC_URL = process.env.MUMBAI_RPC_URL;
+const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -26,10 +27,16 @@ module.exports = {
       saveDeployments: true,
       chainId: 80001,
     },
+    polygon: {
+      url: POLYGON_RPC_URL,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+      chainId: 137,
+    },
   },
   etherscan: {
     apiKey: {
       polygonMumbai: POLYGONSCAN_API_KEY,
+      polygon: POLYGONSCAN_API_KEY,
       goerli: ETHERSCAN_API_KEY,
     },
   },
