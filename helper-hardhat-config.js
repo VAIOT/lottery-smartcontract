@@ -6,14 +6,14 @@ const networkConfig = {
   },
   31337: {
     name: "localhost",
-    subscriptionId: "2679",
+    subscriptionId: "2697",
     gasLane:
       "0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f", // 30 gwei
     callbackGasLimit: "25000000", // 2,500,000 gas
   },
   80001: {
     name: "mumbai",
-    subscriptionId: "2679",
+    subscriptionId: "2697",
     gasLane:
       "0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f", // 30 gwei
     callbackGasLimit: "2500000", // 2,500,000 gas
