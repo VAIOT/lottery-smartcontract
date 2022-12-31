@@ -3,7 +3,7 @@
     "@chainlink/contracts": "^0.5.1",
     "@openzeppelin/contracts": "^4.8.0",
     "dotenv": "^16.0.3",
-    "hardhat": "^2.11.1"
+    "hardhat": "^2.12.4"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.4.7",
