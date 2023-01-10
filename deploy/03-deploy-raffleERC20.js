@@ -1,7 +1,5 @@
-const { network, ethers } = require("hardhat");
-const {
-  developmentChains,
-} = require("../helper-hardhat-config");
+const { network } = require("hardhat");
+const { developmentChains } = require("../helper-hardhat-config");
 const { verify } = require("../utils/verify");
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
@@ -10,13 +8,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
   log("----------------------------------------------------");
 
-  const raffleERC20 = await deploy("RaffleERC20", {
+  await deploy("RaffleERC20", {
     from: deployer,
     args: [],
     log: true,
-    waitConfirmations: 6
+    waitConfirmations: 1,
   });
-
 
   // Verify the deployment
   if (
