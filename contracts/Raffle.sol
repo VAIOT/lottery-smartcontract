@@ -140,12 +140,12 @@ contract Raffle is VRFConsumerBaseV2 {
             totalAmount = totalAmount + _rewardAmounts[i];
         }
 
-        if (
-            getConversionRate(msg.value - totalAmount, s_priceFeed) <
-            MINIMUM_FEE
-        ) {
-            revert Lottery__NotEnoughFundsSent();
-        }
+        // if (
+        //     getConversionRate(msg.value - totalAmount, s_priceFeed) <
+        //     MINIMUM_FEE
+        // ) {
+        //     revert Lottery__NotEnoughFundsSent();
+        // }
 
         if (idToLottery[lotteryId].exists == true) {
             revert Lottery__LotteryAlreadyExists();
@@ -162,7 +162,7 @@ contract Raffle is VRFConsumerBaseV2 {
         idToLottery[lotteryId].lotteryType = LotteryType.SPLIT;
         idToLottery[lotteryId].author = _author;
         idToLottery[lotteryId].status = LotteryState.OPEN;
-        idToLottery[lotteryId].reward = msg.value - totalAmount;
+        idToLottery[lotteryId].reward = totalAmount;
         idToLottery[lotteryId].numOfWinners = _numOfWinners;
         idToLottery[lotteryId].rewardAmounts = _rewardAmounts;
         idToLottery[lotteryId].finalRewards = _rewardAmounts;
