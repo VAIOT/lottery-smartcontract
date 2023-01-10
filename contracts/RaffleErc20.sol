@@ -55,5 +55,30 @@ contract RaffleERC20 {
             IERC20(_token).transfer(_addresses[i], _rewards[i] * (10 ** 18));
         }
     }
+    
+    /// @notice Transfer ERC721 tokens to the winners
+    /// @param _NFTAddresses - array of the NFT Collection Addresses
+    /// @param _winners - array of addresses of the winners of the lottery for example ["0x", "0x2", ...]
+    /// @param _NFTIds - array containing IDs of tokens from certain NFT collections
+
+    function transferERC721(
+        address[] memory _NFTAddresses, 
+        address[] memory _winners, 
+        uint256[] memory _NFTIds
+    ) external onlyOwner {
+        if (_NFTAddresses.length != _winners.length) {
+            revert RaffleErc20__NftAddressesDoNotMatchWinners();
+        }
+        if (_NFTAddresses.length != _NFTIds.length) {
+            revert RaffleErc20__NftAddressesDoNotMatchIds();
+        }
+        if (_winners.length != _NFTIds.length) {
+            revert RaffleErc20__WinnersDoNotMatchNftIds();
+        }
+        for (uint i=0; i<_winners.length; i++) {
+            IERC721 NFT = IERC721(_NFTAddresses[i]);
+            NFT.transferFrom(address(this), _winners[i], _NFTIds[i]);
+        }
+    }
 
 }
