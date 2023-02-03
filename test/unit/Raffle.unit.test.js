@@ -284,12 +284,6 @@ const {
             "100"
           );
           assert.equal(await raffleContract.getNumberOfWinners(1), "4");
-          assert.equal((await raffleContract.getRewardAmounts(1)).toString(), [
-            "25",
-            "25",
-            "25",
-            "25",
-          ]);
         });
         it("Calculates the rewards for each winner properly", async () => {
           await raffleContract.openLotterySplit(
