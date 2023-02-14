@@ -101,10 +101,6 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
     ) public onlyOwner {
         lotteryId += 1;
 
-        if (idToLottery[lotteryId].exists == true) {
-            revert Lottery__LotteryAlreadyExists();
-        }
-
         // Setting basic information about the lottery
 
         idToLottery[lotteryId].exists = true;
