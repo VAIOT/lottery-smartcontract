@@ -20,9 +20,9 @@ const networkConfig = {
   },
   137: {
     name: "polygon",
-    subscriptionId: "2679",
+    subscriptionId: "621",
     gasLane:
-      "0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f", // 30 gwei
+      "0xcc294a196eeeb44da2888d17c0625cc88d70d9760a69d58d853ba6581a9ab0cd", // 500 gwei
     callbackGasLimit: "2500000", // 2,500,000 gas
   },
 };
