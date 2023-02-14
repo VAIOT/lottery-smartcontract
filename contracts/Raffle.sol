@@ -132,10 +132,6 @@ contract Raffle is VRFConsumerBaseV2 {
             totalAmount = totalAmount + _rewardAmounts[i];
         }
 
-        if (idToLottery[lotteryId].exists == true) {
-            revert Lottery__LotteryAlreadyExists();
-        }
-
         lotteryId += 1;
 
         // Setting basic information about the lottery
@@ -183,9 +179,6 @@ contract Raffle is VRFConsumerBaseV2 {
             revert Lottery__RewardProportionsError();
         }
 
-        if (idToLottery[lotteryId].exists == true) {
-            revert Lottery__LotteryAlreadyExists();
-        }
 
         lotteryId += 1;
 
