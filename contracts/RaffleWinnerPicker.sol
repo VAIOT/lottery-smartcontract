@@ -71,10 +71,10 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
         uint64 _subscriptionId,
         bytes32 _gasLane,
         uint32 _callbackGasLimit
-    ) payable VRFConsumerBaseV2(0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed) {
+    ) payable VRFConsumerBaseV2(0xAE975071Be8F8eE67addBC1A82488F1C24858067) {
         i_owner = msg.sender;
         i_vrfCoordinator = VRFCoordinatorV2Interface(
-            0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed
+            0xAE975071Be8F8eE67addBC1A82488F1C24858067
         );
         i_subscriptionId = _subscriptionId;
         i_gasLane = _gasLane;
