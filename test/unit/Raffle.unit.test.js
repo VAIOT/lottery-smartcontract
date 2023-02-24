@@ -34,10 +34,10 @@ const {
             playerConnected.openLotteryPercentage(
               "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
               "4",
-              "10",
-              [25, 25, 25, 25],
               "1000000000",
-              { value: "100" }
+              ["250000000", "250000000", "250000000", "250000000"],
+              [25, 25, 25, 25],
+              { value: "1000000000" }
             )
           ).to.be.reverted;
         });
@@ -46,9 +46,9 @@ const {
             raffleContract.openLotteryPercentage(
               "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
               "4",
-              "10",
-              [25, 25, 25, 25],
               "1000000000",
+              ["250000000", "250000000", "250000000", "250000000"],
+              [25, 25, 25, 25],
               { value: "0" }
             )
           ).to.be.revertedWithCustomError(
@@ -61,10 +61,10 @@ const {
             raffleContract.openLotteryPercentage(
               "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
               "4",
-              "10",
-              [25, 25, 25],
-              "1000000",
-              { value: "100" }
+              "1000000000",
+              ["250000000", "250000000", "250000000", "250000000"],
+              [25, 25, 50],
+              { value: "1000000000" }
             )
           ).to.be.revertedWithCustomError(
             raffleContract,
@@ -75,10 +75,10 @@ const {
           await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
-            "100",
+            "1000000000",
+            ["250000000", "250000000", "250000000", "250000000"],
             [25, 25, 25, 25],
-            "1000000000000000000",
-            { value: "10000000000000000000" }
+            { value: "1000000000" }
           );
           assert.equal(await raffleContract.getLotteryId(), "1");
           assert.equal(await raffleContract.checkIfLotteryExists(1), "1");
@@ -88,7 +88,10 @@ const {
           );
           assert.equal(await raffleContract.getLotteryState(1), "1");
           assert.equal(await raffleContract.getLotteryType(1), "1");
-          assert.equal(await raffleContract.getLotteryPrize(1), "100");
+          assert.equal(
+            (await raffleContract.getLotteryPrize(1)).toString(),
+            "1000000000"
+          );
           assert.equal(await raffleContract.getNumberOfWinners(1), "4");
           assert.equal(
             (await raffleContract.getRewardProportions(1)).toString(),
@@ -99,16 +102,16 @@ const {
           await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
-            "100",
+            "1000000000",
+            ["250000000", "250000000", "250000000", "250000000"],
             [25, 25, 25, 25],
-            "1000000000000000000",
-            { value: "10000000000000000000" }
+            { value: "1000000000" }
           );
           assert.equal((await raffleContract.getFinalRewards(1)).toString(), [
-            "25",
-            "25",
-            "25",
-            "25",
+            "250000000",
+            "250000000",
+            "250000000",
+            "250000000",
           ]);
         });
       });
@@ -141,10 +144,10 @@ const {
           await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
-            "100",
+            "1000000000",
+            ["250000000", "250000000", "250000000", "250000000"],
             [25, 25, 25, 25],
-            "1000000000000000000",
-            { value: "10000000000000000000" }
+            { value: "1000000000" }
           );
           await raffleContract.addLotteryParticipants("1", [
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
@@ -163,10 +166,10 @@ const {
           await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
-            "100",
+            "1000000000",
+            ["250000000", "250000000", "250000000", "250000000"],
             [25, 25, 25, 25],
-            "1000000000000000000",
-            { value: "10000000000000000000" }
+            { value: "1000000000" }
           );
           await expect(
             raffleContract.addLotteryParticipants("1", [
@@ -183,10 +186,10 @@ const {
           await raffleContract.openLotteryPercentage(
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
             "4",
-            "100",
+            "1000000000",
+            ["250000000", "250000000", "250000000", "250000000"],
             [25, 25, 25, 25],
-            "1000000000000000000",
-            { value: "10000000000000000000" }
+            { value: "1000000000" }
           );
           await raffleContract.addLotteryParticipants("1", [
             "0xD6D8903F2E900b176c5915A68144E4bd664aA153",
@@ -207,21 +210,18 @@ const {
           const tx = await raffleContract.openLotteryPercentage(
             playerTwo.address,
             "1",
-            "100",
+            "10000",
+            ["10000"],
             [100],
-            "1000000000000000000",
             {
-              value: "1000000000000000100",
+              value: "10000",
             }
           );
           await raffleContract.addLotteryParticipants("1", [playerTwo.address]);
           await raffleContract.emergencyCashback("1");
           const endingBalance = await playerTwo.getBalance();
           assert.equal(
-            startingBalance
-              .add(tx.value)
-              .sub(ethers.utils.parseEther("1"))
-              .toString(),
+            startingBalance.add(tx.value).toString(),
             endingBalance.toString()
           );
         });

@@ -179,10 +179,9 @@ contract Raffle is VRFConsumerBaseV2 {
             revert Lottery__RewardProportionsError();
         }
 
-
         lotteryId += 1;
 
-        // Setting basic information about the lottery
+        // Setting basic information about the giveaway contract
 
         idToLottery[lotteryId].exists = true;
         idToLottery[lotteryId].author = _author;

@@ -93,7 +93,7 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
 
     /// @notice Open the lottery
     /// @param _author - author of the giveaway
-    /// @param _numOfWinners - number of winners of the lottery
+    /// @param _numOfWinners - number of winners of the giveaway contract
 
     function openLottery(
         address payable _author,
