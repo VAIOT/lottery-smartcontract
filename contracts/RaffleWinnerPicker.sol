@@ -57,6 +57,7 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
     /* Mappings */
     mapping(uint256 => Lottery) idToLottery;
     mapping(uint256 => uint256) idToRandomNumber;
+    mapping(uint256 => uint256) requestIdToLotteryId; // mapping to store lotteryIds for each requestId
 
     /* Events */
     event RequestedRaffleWinner(uint256 indexed requestId);
@@ -155,17 +156,21 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
             i_callbackGasLimit,
             NUM_WORDS
         );
+
+        requestIdToLotteryId[uint256(requestId)] = _lotteryId;
+
         emit RequestedRaffleWinner(requestId);
     }
 
     /// @notice Function that the Chainlink node calls in order to supply us with a random number
 
     function fulfillRandomWords(
-        uint256 /* _requestId */,
+        uint256 _requestId,
         uint256[] memory _randomWords
     ) internal override {
-        idToRandomNumber[lotteryId] = _randomWords[0];
-        emit RandomNumberPicked(lotteryId, _randomWords[0]);
+        uint256 _lotteryId = requestIdToLotteryId[_requestId];
+        idToRandomNumber[_lotteryId] = _randomWords[0];
+        emit RandomNumberPicked(_lotteryId, _randomWords[0]);
     }
 
     /// @notice Function that picks the winners of the lottery
