@@ -62,7 +62,7 @@ contract Raffle is VRFConsumerBaseV2 {
         LotteryType lotteryType;
         uint256 reward;
         uint256 numOfWinners;
-        uint256[] rewardProportions; // this is used when a % lottery is picked
+        uint256[] rewardProportions; // this is used when a % lottery is picked.
         uint256[] finalRewards;
         address payable[] participants;
         address payable[] winners;
@@ -71,6 +71,7 @@ contract Raffle is VRFConsumerBaseV2 {
     /* Mappings */
     mapping(uint256 => Lottery) idToLottery;
     mapping(uint256 => uint256) idToRandomNumber;
+    mapping(uint256 => uint256) requestIdToLotteryId; // mapping to store lotteryIds for each requestId
 
     /* Events */
     event RequestedRaffleWinner(uint256 indexed requestId);
@@ -85,10 +86,10 @@ contract Raffle is VRFConsumerBaseV2 {
         uint64 _subscriptionId,
         bytes32 _gasLane,
         uint32 _callbackGasLimit
-    ) payable VRFConsumerBaseV2(0xAE975071Be8F8eE67addBC1A82488F1C24858067) {
+    ) payable VRFConsumerBaseV2(0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed) {
         i_owner = msg.sender;
         i_vrfCoordinator = VRFCoordinatorV2Interface(
-            0xAE975071Be8F8eE67addBC1A82488F1C24858067
+            0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed
         );
         i_subscriptionId = _subscriptionId;
         i_gasLane = _gasLane;
@@ -105,10 +106,10 @@ contract Raffle is VRFConsumerBaseV2 {
 
     /* Main Functions */
 
-    /// @notice Open the lottery with the type SPLIT
-    /// @param _author - author of the giveaway
+    /// @notice Open the lottery with the type SPLIT.
+    /// @param _author - author of the giveaway.
     /// @param _numOfWinners - number of winners of the lottery
-    /// @param _rewardAmounts - how many tokens go to which winner in WEI. For example 0.1 tokens is 0.1*10^18
+    /// @param _rewardAmounts - how many tokens go to which winner in WEI. For example 0.1 tokens is 0.1*10^18.
 
     function openLotterySplit(
         address payable _author,
@@ -243,17 +244,21 @@ contract Raffle is VRFConsumerBaseV2 {
             i_callbackGasLimit,
             NUM_WORDS
         );
+
+        requestIdToLotteryId[uint256(requestId)] = _lotteryId;
+
         emit RequestedRaffleWinner(requestId);
     }
 
     /// @notice Function that the Chainlink node calls in order to supply us with a random number
 
     function fulfillRandomWords(
-        uint256 /* _requestId */,
+        uint256 _requestId,
         uint256[] memory _randomWords
     ) internal override {
-        idToRandomNumber[lotteryId] = _randomWords[0];
-        emit RandomNumberPicked(lotteryId, _randomWords[0]);
+        uint256 _lotteryId = requestIdToLotteryId[_requestId];
+        idToRandomNumber[_lotteryId] = _randomWords[0];
+        emit RandomNumberPicked(_lotteryId, _randomWords[0]);
     }
 
     /// @notice Function that pays the winners of the lottery
