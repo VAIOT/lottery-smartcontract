@@ -162,7 +162,7 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
         emit RequestedRaffleWinner(requestId);
     }
 
-    /// @notice Function that the Chainlink node calls in order to supply us with a random number
+    /// @notice Function that the Chainlink node calls in order to supply us with a random number.
 
     function fulfillRandomWords(
         uint256 _requestId,
@@ -219,6 +219,13 @@ contract RaffleWinnerPicker is VRFConsumerBaseV2 {
             idToLottery[_lotteryId].participants.pop();
         }
         return idToLottery[_lotteryId].winners;
+    }
+
+    function closeLottery(uint256 _lotteryId) public onlyOwner {
+        if (!idToLottery[_lotteryId].exists) {
+            revert Lottery__LotteryDoesNotExist();
+        }
+        idToLottery[_lotteryId].status = LotteryState.CLOSED;
     }
 
     /* Getter Functions */

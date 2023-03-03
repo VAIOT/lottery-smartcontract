@@ -214,7 +214,7 @@ contract Raffle is VRFConsumerBaseV2 {
         emit AddressesAdded(_lotteryId, _addresses);
     }
 
-    /// @notice Call Chainlink VRF to get a random number
+    /// @notice Call Chainlink VRF to get a random number.
     /// @param _lotteryId - id of the lottery
 
     function pickRandomNumberForLottery(uint256 _lotteryId) external onlyOwner {
