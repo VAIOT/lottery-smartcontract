@@ -8,7 +8,6 @@ const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY;
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
 const REPORT_GAS = process.env.REPORT_GAS || false;
 const MUMBAI_RPC_URL = process.env.MUMBAI_RPC_URL;
-const GOERLI_RPC_URL = process.env.GOERLI_RPC_URL;
 const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 
