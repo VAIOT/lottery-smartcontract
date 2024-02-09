@@ -40,7 +40,7 @@ The Raffle contract allows owner to open up lotteries, add participants of the l
 
 The RaffleWinnerPicker has a very similiar functionality to the Raffle contract with one main difference - the contract does not payout any money to the winners. The contract is strictly for opening up lotteries without money, adding participants of the giveaway and finding X amount of winners using the VRF Chainlink technology.
 
-The RaffleERC20 contract is used for storing ERC20 and ERC721 during the lottery. Users are able to send both ERC20 and ERC721 tokens to this smart contract for safekeeping and after the lottery has ended, our back-end service will call transferERC20 to send ERC20 tokens to winners or transferERC721 to send ERC721 tokens to the winners.
+The RaffleERC20 contract is used for storing ERC20 and ERC721 during the lottery. Users are able to send both ERC20 and ERC721 tokens to this smart contract for safekeeping and after the lottery has ended, a backend service should call transferERC20 to send ERC20 tokens to winners or transferERC721 to send ERC721 tokens to the winners.
 
 For full functionality and method descriptions, refer to the source code.
 
